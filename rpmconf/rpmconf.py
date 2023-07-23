@@ -228,8 +228,9 @@ class RpmConf(object):
                 if diff is None:
                     # read the error
                     diff = diff_out.communicate()[1]
-                pydoc.pager(err_msg + "".join(diff))
-                return
+
+            pydoc.pager(err_msg + "".join(diff))
+            return
 
         # Use specified backend.
         tmpfile1 = tempfile.NamedTemporaryFile(
@@ -356,10 +357,10 @@ class RpmConf(object):
                                           universal_newlines=True))
 
     def _merge_conf_files(self, conf_file, other_file):
-        # vimdiff, gvimdiff, meld return 0 even if file was not saved
+        # vimdiff, gvimdiff, kompare, meld return 0 even if file was not saved
         # we may handle it some way. check last modification? ask user?
         try:
-            if self.frontend in ["vimdiff", "gvimdiff", "meld"]:
+            if self.frontend in ["vimdiff", "gvimdiff", "kompare", "meld"]:
                 subprocess.check_call(
                     ["/usr/bin/{}".format(self.frontend),
                      conf_file, other_file])
