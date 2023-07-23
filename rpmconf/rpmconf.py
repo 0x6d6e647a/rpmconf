@@ -233,6 +233,8 @@ class RpmConf(object):
             return
 
         # Use specified backend.
+        print(err_msg)
+
         tmpfile1 = tempfile.NamedTemporaryFile(
             prefix='{}_'.format(os.path.basename(file1)),
             delete=False)
