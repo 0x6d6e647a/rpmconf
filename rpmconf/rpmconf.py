@@ -209,23 +209,88 @@ class RpmConf(object):
                 file2 = "/dev/null"
             else:
                 todate = time.ctime(os.stat(file2).st_mtime)
-        try:
-            fromlines = open(file1).readlines()
-            tolines = open(file2).readlines()
-            diff = difflib.unified_diff(fromlines, tolines,
-                                        file1, file2,
-                                        fromdate, todate)
-        except UnicodeDecodeError:
-            # binary files
-            diff_out = subprocess.Popen(["/usr/bin/diff", "-u", file1, file2],
-                                        stdout=subprocess.PIPE,
-                                        universal_newlines=True)
-            # pylint: disable=redefined-variable-type
-            diff = diff_out.communicate()[0]
-            if diff is None:
-                # read the error
-                diff = diff_out.communicate()[1]
-        pydoc.pager(err_msg + "".join(diff))
+
+        # Use Python difflib if no backend specified.
+        if self.backend is None and os.environ.get('DIFF') is None:
+            try:
+                fromlines = open(file1).readlines()
+                tolines = open(file2).readlines()
+                diff = difflib.unified_diff(fromlines, tolines,
+                                            file1, file2,
+                                            fromdate, todate)
+            except UnicodeDecodeError:
+                # binary files
+                diff_out = subprocess.Popen(["/usr/bin/diff", "-u", file1, file2],
+                                            stdout=subprocess.PIPE,
+                                            universal_newlines=True)
+                # pylint: disable=redefined-variable-type
+                diff = diff_out.communicate()[0]
+                if diff is None:
+                    # read the error
+                    diff = diff_out.communicate()[1]
+                pydoc.pager(err_msg + "".join(diff))
+                return
+
+        # Use specified backend.
+        tmpfile1 = tempfile.NamedTemporaryFile(
+            prefix='{}_'.format(os.path.basename(file1)),
+            delete=False)
+        tmpfile2 = tempfile.NamedTemporaryFile(
+            prefix='{}_'.format(os.path.basename(file2)),
+            delete=False)
+
+        tmpfile1.close()
+        tmpfile2.close()
+        tmp1 = tmpfile1.name
+        tmp2 = tmpfile2.name
+        self._copy(file1, tmp1)
+        self._copy(file2, tmp2)
+
+        if self.backend in [ "colordiff", "diff" ]:
+            cmd = [ f"/usr/bin/{self.backend}" ]
+
+            if hasattr(sys.stdout, 'isatty') and sys.stdout.isatty():
+                cmd.append("--color=always")
+
+                if self.backend == "colordiff":
+                    cmd.append("--color=yes")
+
+            cmd.extend([ tmp1, tmp2 ])
+
+            with subprocess.Popen(cmd, stdout=subprocess.PIPE, universal_newlines=True) as diff_proc:
+                diff = diff_proc.communicate()[0]
+
+                if diff is None:
+                    # read the error
+                    diff = diff_proc.communicate()[1]
+
+                print(diff)
+        elif self.backend in [ "vimdiff", "gvimdiff", "meld", "diffuse", "sdiff", "kdiff3", "kompare" ]:
+            cmd = [ f"/usr/bin/{self.backend}" ]
+
+            if self.backend in [ "vimdiff", "gvimdiff" ]:
+                cmd.append("-R")
+            elif self.backend == "meld":
+                cmd.append("--diff")
+
+            cmd.extend([ tmp1, tmp2 ])
+
+            subprocess.run(cmd)
+        elif self.backend == "env" or os.environ.get("DIFF") is not None:
+            backend = os.environ.get("DIFF")
+
+            if backend is None:
+                self.logger.error("You set 'env' backend for diff but didn't set 'DIFF'.\n" +
+                                  "      Define it with environment variable 'DIFF' or flag -b.")
+            else:
+                cmd = [ os.environ.get("DIFF"), tmp1, tmp2 ]
+                subprocess.run(cmd)
+        else:
+            self.logger.error("You did not select any backend for diff.\n" +
+                              "      Define it with environment variable 'DIFF' or flag -b.")
+
+        self._remove(tmp1)
+        self._remove(tmp2)
 
     @staticmethod
     def is_broken_symlink(file1):

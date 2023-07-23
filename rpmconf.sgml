@@ -98,6 +98,12 @@
         </listitem>
     </varlistentry>
     <varlistentry>
+        <term>-b&lt;type&gt;, --backend=&lt;type&gt;</term>
+        <listitem>
+            <para>Define which external backend should be used for displaying diffs. Valid options are: vimdiff, gvimdiff, diffuse, kdiff3, kompare, meld, sdiff and env. When set to env, the command to use is taken from the environment variable $DIFF. The default is to use the internal Python diff.</para>
+        </listitem>
+    </varlistentry>
+    <varlistentry>
         <term>-c, --clean</term>
         <listitem>
             <para>Find all .rpmnew and .rpmsave files in /etc and /var directories. List all files belonging to installed packages, then write all files which are orphaned and ask if it is safe to delete them.</para>

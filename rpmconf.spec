@@ -42,6 +42,7 @@ BuildRequires:  python%{python3_pkgversion}-six
 Suggests: diffuse
 Suggests: diffutils
 Suggests: kdiff3
+Suggests: kompare
 Suggests: meld
 Suggests: vim-X11
 Suggests: vim-enhanced
