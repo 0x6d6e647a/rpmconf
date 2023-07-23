@@ -61,14 +61,14 @@ class RpmConf(object):
     :type selinux: bool
     :param diff: Non-interactive diff mode. Useful to audit configs.
     :type diff: bool
-    :param frontend: Define which frontend should be used for merging.
-    :type frontend: str
+    :param merge_frontend: Define which frontend should be used for merging.
+    :type merge_frontend: str
     :param test: Only test if there is some file to merge.
     :type test: bool
     :ivar packages: :class:`list` of :class:`rpm.mi`
     :ivar clean: :class:`bool`
     :ivar diff: :class:`bool`
-    :ivar frontend: :class:`str`
+    :ivar merge_frontend: :class:`str`
     :ivar selinux: :class:`bool`
     :ivar debug: :class:`bool`
     :ivar logger: :class:`logging.Logger`
@@ -80,12 +80,12 @@ class RpmConf(object):
     :param unattended: Defines unattended mode.
     :type unattended: str
     :ivar unattended: :class:`str`
-    :param frontend: Define which backend should be used for displaying diff.
-    :type frontend: str
+    :param diff_frontend: Define which frontend should be used for displaying diff.
+    :type diff_frontend: str
     """
     def __init__(self, packages=None, clean=False, debug=False, selinux=False,
-                 diff=False, frontend=None, test=None, exclude=None, root=None,
-                 unattended=None, backend=None):
+                 diff=False, merge_frontend=None, test=None, exclude=None, root=None,
+                 unattended=None, diff_frontend=None):
         if root:
             self.trans = rpm.TransactionSet(rootdir=root)
         else:
@@ -104,14 +104,14 @@ class RpmConf(object):
 
         self.clean = clean
         self.diff = diff
-        self.frontend = frontend
+        self.merge_frontend = merge_frontend
         self.selinux = selinux
         self.debug = debug
         self.test = test
         self.exclude = [Path(os.path.realpath(x)) for x in exclude]
         self.root = root
         self.unattended = unattended
-        self.backend = backend
+        self.diff_frontend = diff_frontend
         self.logger = logging.getLogger("rpmconf")
         self.logger.setLevel(logging.INFO)
 
@@ -210,8 +210,8 @@ class RpmConf(object):
             else:
                 todate = time.ctime(os.stat(file2).st_mtime)
 
-        # Use Python difflib if no backend specified.
-        if self.backend is None and os.environ.get('DIFF') is None:
+        # Use Python difflib if no diff frontend specified.
+        if self.diff_frontend is None and os.environ.get('DIFF') is None:
             try:
                 fromlines = open(file1).readlines()
                 tolines = open(file2).readlines()
@@ -232,7 +232,7 @@ class RpmConf(object):
             pydoc.pager(err_msg + "".join(diff))
             return
 
-        # Use specified backend.
+        # Use specified diff frontend.
         print(err_msg)
 
         tmpfile1 = tempfile.NamedTemporaryFile(
@@ -249,13 +249,13 @@ class RpmConf(object):
         self._copy(file1, tmp1)
         self._copy(file2, tmp2)
 
-        if self.backend in [ "colordiff", "diff" ]:
-            cmd = [ f"/usr/bin/{self.backend}" ]
+        if self.diff_frontend in [ "colordiff", "diff" ]:
+            cmd = [ f"/usr/bin/{self.diff_frontend}" ]
 
             if hasattr(sys.stdout, 'isatty') and sys.stdout.isatty():
                 cmd.append("--color=always")
 
-                if self.backend == "colordiff":
+                if self.diff_frontend == "colordiff":
                     cmd.append("--color=yes")
 
             cmd.extend([ tmp1, tmp2 ])
@@ -268,28 +268,28 @@ class RpmConf(object):
                     diff = diff_proc.communicate()[1]
 
                 print(diff)
-        elif self.backend in [ "vimdiff", "gvimdiff", "meld", "diffuse", "sdiff", "kdiff3", "kompare" ]:
-            cmd = [ f"/usr/bin/{self.backend}" ]
+        elif self.diff_frontend in [ "vimdiff", "gvimdiff", "meld", "diffuse", "sdiff", "kdiff3", "kompare" ]:
+            cmd = [ f"/usr/bin/{self.diff_frontend}" ]
 
-            if self.backend in [ "vimdiff", "gvimdiff" ]:
+            if self.diff_frontend in [ "vimdiff", "gvimdiff" ]:
                 cmd.append("-R")
-            elif self.backend == "meld":
+            elif self.diff_frontend == "meld":
                 cmd.append("--diff")
 
             cmd.extend([ tmp1, tmp2 ])
 
             subprocess.run(cmd)
-        elif self.backend == "env" or os.environ.get("DIFF") is not None:
-            backend = os.environ.get("DIFF")
+        elif self.diff_frontend == "env" or os.environ.get("DIFF") is not None:
+            diff_frontend = os.environ.get("DIFF")
 
-            if backend is None:
-                self.logger.error("You set 'env' backend for diff but didn't set 'DIFF'.\n" +
+            if diff_frontend is None:
+                self.logger.error("You set 'env' frontend for diff but didn't set 'DIFF'.\n" +
                                   "      Define it with environment variable 'DIFF' or flag -b.")
             else:
                 cmd = [ os.environ.get("DIFF"), tmp1, tmp2 ]
                 subprocess.run(cmd)
         else:
-            self.logger.error("You did not select any backend for diff.\n" +
+            self.logger.error("You did not select any frontend for diff.\n" +
                               "      Define it with environment variable 'DIFF' or flag -b.")
 
         self._remove(tmp1)
@@ -362,17 +362,17 @@ class RpmConf(object):
         # vimdiff, gvimdiff, kompare, meld return 0 even if file was not saved
         # we may handle it some way. check last modification? ask user?
         try:
-            if self.frontend in ["vimdiff", "gvimdiff", "kompare", "meld"]:
+            if self.merge_frontend in ["vimdiff", "gvimdiff", "kompare", "meld"]:
                 subprocess.check_call(
-                    ["/usr/bin/{}".format(self.frontend),
+                    ["/usr/bin/{}".format(self.merge_frontend),
                      conf_file, other_file])
-            elif self.frontend == "diffuse":
+            elif self.merge_frontend == "diffuse":
                 try:
                     subprocess.check_call(
                         ["/usr/bin/diffuse", conf_file, other_file])
                 except subprocess.CalledProcessError:
                     print("Files not merged.")
-            elif self.frontend == "kdiff3":
+            elif self.merge_frontend == "kdiff3":
                 try:
                     subprocess.check_call(
                         ["/usr/bin/kdiff3", conf_file, other_file,
@@ -381,7 +381,7 @@ class RpmConf(object):
                     self._remove("{}.orig".format(conf_file))
                 except subprocess.CalledProcessError:
                     print("Files not merged.")
-            elif self.frontend == "sdiff":
+            elif self.merge_frontend == "sdiff":
                 try:
                     tmp_file_name = (tempfile.mkstemp(prefix='rpmconf_'))[1]
                     subprocess.check_call(
@@ -397,7 +397,7 @@ class RpmConf(object):
                         self._remove(tmp_file_name)
                     else: # returncode == 2
                         print("Files not merged.")
-            elif (self.frontend == "env" or self.frontend is None) and \
+            elif (self.merge_frontend == "env" or self.merge_frontend is None) and \
                     os.environ.get('MERGE') is not None:
                 merge_tool = os.environ.get('MERGE')
                 print(repr(merge_tool))
