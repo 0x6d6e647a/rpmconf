@@ -80,10 +80,12 @@ class RpmConf(object):
     :param unattended: Defines unattended mode.
     :type unattended: str
     :ivar unattended: :class:`str`
+    :param frontend: Define which backend should be used for displaying diff.
+    :type frontend: str
     """
     def __init__(self, packages=None, clean=False, debug=False, selinux=False,
                  diff=False, frontend=None, test=None, exclude=None, root=None,
-                 unattended=None):
+                 unattended=None, backend=None):
         if root:
             self.trans = rpm.TransactionSet(rootdir=root)
         else:
@@ -109,6 +111,7 @@ class RpmConf(object):
         self.exclude = [Path(os.path.realpath(x)) for x in exclude]
         self.root = root
         self.unattended = unattended
+        self.backend = backend
         self.logger = logging.getLogger("rpmconf")
         self.logger.setLevel(logging.INFO)
 

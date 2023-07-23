@@ -29,6 +29,10 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("-a", "--all", dest="all", action="store_true",
                         help="Check configuration files of all packages.")
+    parser.add_argument("-b", "--backend", dest="backend", action="store",
+                        metavar="DIFF",
+                        help="Define which backend should be used for displaying diff."
+                             " For list of valid types see man page.")
     parser.add_argument("-c", "--clean", dest="clean", action="store_true",
                         help="Find and delete orphaned"
                              " .rpmnew and .rpmsave files.")
@@ -89,7 +93,8 @@ def main():
                             diff=args.diff, frontend=args.frontend,
                             selinux=args.selinux, test=args.test,
                             exclude=args.exclude, root=args.root,
-                            unattended=args.unattended)
+                            unattended=args.unattended,
+                            backend=args.backend)
 
     try:
         rconf.run()
