@@ -213,23 +213,36 @@ class RpmConf(object):
         # Use Python difflib if no diff frontend specified.
         if self.diff_frontend is None and os.environ.get('DIFF') is None:
             try:
-                fromlines = open(file1).readlines()
-                tolines = open(file2).readlines()
+                with open(file1, encoding='ascii') as fh1, \
+                     open(file2, encoding='ascii') as fh2:
+                    fromlines = fh1.readlines()
+                    tolines = fh2.readlines()
                 diff = difflib.unified_diff(fromlines, tolines,
                                             file1, file2,
                                             fromdate, todate)
+                if hasattr(sys.stdout, 'isatty') and sys.stdout.isatty():
+                    red = lambda text: f"\033[38;2;255;0;0m{text}\033[38;2;255;255;255m"
+                    green = lambda text: f"\033[38;2;0;255;0m{text}\033[38;2;255;255;255m"
+                    colordiff_lines = []
+                    for index, line in enumerate(diff):
+                        line = line.rstrip()
+                        if index > 2:
+                            if line.startswith('+'):
+                                line = green(line)
+                            elif line.startswith('-'):
+                                line = red(line)
+                        colordiff_lines.append(line)
+                    diff = map(lambda x: x + "\n", colordiff_lines)
             except UnicodeDecodeError:
                 # binary files
-                diff_out = subprocess.Popen(["/usr/bin/diff", "-u", file1, file2],
-                                            stdout=subprocess.PIPE,
-                                            universal_newlines=True)
-                # pylint: disable=redefined-variable-type
-                diff = diff_out.communicate()[0]
-                if diff is None:
-                    # read the error
-                    diff = diff_out.communicate()[1]
-
-            pydoc.pager(err_msg + "".join(diff))
+                with subprocess.Popen(["/usr/bin/diff", "-u", file1, file2],
+                                      stdout=subprocess.PIPE,
+                                      universal_newlines=True) as diff_process:
+                    diff = diff_process.communicate()[0]
+                    if diff is None:
+                        # read the error
+                        diff = diff_process.communicate()[1]
+            pydoc.pipepager(err_msg + "".join(diff), [ "less", "-R" ])
             return
 
         # Use specified diff frontend.
