@@ -39,6 +39,7 @@ BuildRequires:  python%{python3_pkgversion}-six
 %if 0%{?rhel} == 7
   # nothing
 %else
+Suggests: colordiff
 Suggests: diffuse
 Suggests: diffutils
 Suggests: kdiff3
